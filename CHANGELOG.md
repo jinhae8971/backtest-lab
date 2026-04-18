@@ -8,11 +8,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- MA Golden Alignment 전략 구현 (MA5 > MA20 > MA60 + RSI14 필터)
-- Elliott Wave 3파 진입 전략 (trendline-detector 통합)
-- 전략별 Sharpe Ratio / MDD / Win Rate HTML 리포트
-- GitHub Pages 자동 배포
-- Telegram 주간 요약 발송
+- trendline-detector 통합 (JSON 입력으로 Elliott 정밀도 향상)
+- chart-analyzer 연동 (백테스트 결과 기반 차트 생성 + Telegram)
+- Walk-forward analysis (과최적화 방지)
+- Parameter optimization (grid search + optuna)
+- 한국 종목 지원 (FinanceDataReader 통합)
+
+---
+
+## [0.1.0] — 2026-04-18
+
+### Added
+- **Data loader** (`src/data/`)
+  - `loader.py`: yfinance 기반 OHLCV 로더
+  - Backtrader `PandasData` feed 어댑터 (`load_backtrader_feed`)
+  - 멀티레벨 컬럼 자동 평탄화
+- **3 전략 템플릿** (`src/strategies/`)
+  - `MAGoldenAlignment`: MA5 > MA20 > MA60 정배열 진입 + RSI14 필터 + 스탑로스
+  - `RSIOversoldBounce`: RSI < 30 진입 + RSI > 70 청산 + 200MA 추세 필터
+  - `ElliottWave3Entry`: 엘리엇 2파 완료(38.2%-78.6% 되돌림) + 1파 고점 돌파 시 진입
+  - `STRATEGY_REGISTRY`로 CLI에서 이름으로 호출
+  - 모두 risk_per_trade 기반 포지션 사이징
+- **Report builder** (`src/reports/`)
+  - `run_analyzers_metrics`: Sharpe/Drawdown/Returns/TradeAnalyzer 지표 추출
+  - `build_json_summary`: 스키마 버전 기록된 JSON 요약
+  - `build_html_report`: 한국어 전문가급 HTML (KPI 카드 + 상세 지표 + 거래 이력)
+- **CLI** (`src/run.py`)
+  - `python -m src.run --strategy <name> --ticker SPY,QQQ --years 5`
+  - 멀티 티커 지원 (comma-separated)
+  - 멀티 티커 `index.json` 자동 생성 (전략 비교용)
+  - `--start/--end` 명시적 기간 지정 또는 `--years` 백 프로젝션
+- **GitHub Actions 주간 워크플로우** (`.github/workflows/weekly_backtest.yml`)
+  - 매주 일요일 23:00 UTC (월요일 08:00 KST) 자동 실행
+  - Matrix strategy: 3전략 × 5티커 = 15개 백테스트 병렬
+  - HTML + JSON 결과를 `docs/reports/` 로 자동 커밋
+  - Rebase-on-push 재시도 로직 (commit 경합 내성)
+- **Pytest 테스트 커버리지** (7개 테스트, 100% 통과)
+  - Strategy registry + Backtrader 호환성
+  - 실제 cerebro 실행 (MAGoldenAlignment, RSIOversoldBounce)
+  - Report 빌더 (JSON + HTML)
+  - yfinance 데이터 로더
+
+### Verified (실측 동작 확인)
+- **SPY 5년 MA Golden**: +8.61%, Sharpe 0.014, MDD -3.6%, 승률 46.4% (13W/15L)
+- **QQQ 5년 RSI Oversold**: +4.97%, MDD -5.6%, **승률 66.7%** (4W/2L)
+- **NVDA 5년 Elliott W3**: **+29.87%**, Sharpe 0.035, MDD -12.0%, 승률 46.7% (7W/8L)
+- HTML 리포트: NVDA 6.2KB, SPY 8.8KB — 전문가급 시각화 확인
+
+### Rollback
+복원하려면: `git checkout v0.0.0`
 
 ---
 
