@@ -1,0 +1,23 @@
+# Core backtesting
+backtrader>=1.9.78
+pandas>=2.2.0
+numpy>=1.26.0
+
+# Data sources
+yfinance>=0.2.40
+finance-datareader>=0.9.96
+
+# Analysis & visualization
+matplotlib>=3.8.0
+mplfinance>=0.12.10
+
+# Reporting
+jinja2>=3.1.0          # HTML 템플릿
+tabulate>=0.9.0        # 결과 표
+
+# Optional: AI integration
+anthropic>=0.39.0      # Claude API (AI Coding Assistant 대체)
+
+# Dev
+pytest>=8.0.0
+ruff>=0.5.0
