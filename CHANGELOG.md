@@ -16,6 +16,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] — 2026-04-18
+
+### Added
+- **BollingerBreakout 전략** (`src/strategies/bollinger_breakout.py`)
+  - BB(20, 2σ) 상단 돌파 시 진입
+  - **Squeeze 감지**: band_width가 과거 평균 대비 좁을 때 → 강한 돌파 신호
+  - Volume confirmation: 거래량이 20MA의 1.2배 초과
+  - 200MA trend filter
+  - 밴드 중앙선 이탈 시 mean-reversion 청산
+- **MACDDivergence 전략** (`src/strategies/macd_divergence.py`)
+  - **강세 다이버전스 감지**: 가격 신저가 + MACD 히스토그램 상승 저점
+  - 30-bar lookback, 2-bar rising confirmation
+  - 최소 3% 하락 후 검증 (노이즈 제거)
+  - MACD 하향 크로스 시 청산
+- **Strategy registry 확장**: `STRATEGY_REGISTRY`에 `bollinger_breakout`, `macd_divergence` 추가
+- **6 new pytest cases** (`tests/test_new_strategies.py`)
+
+### Verified (NVDA 5년 실측 결과 비교)
+| 전략 | 수익률 | Sharpe | MDD | 승률 | 거래 |
+|---|---|---|---|---|---|
+| ma_golden | +85.1% | 0.056 | -19.4% | 37.9% | 29 |
+| **rsi_oversold** 🥇 | +40.2% | 0.068 | **-6.9%** | **87.5%** | 8 |
+| elliott_w3 | +29.9% | 0.035 | -12.0% | 46.7% | 15 |
+| bollinger_breakout | +34.7% | 0.043 | -10.5% | 57.1% | 14 |
+| macd_divergence | +5.9% | 0.005 | -3.9% | 50.0% | 4 |
+
+### Rollback
+복원 명령: `git checkout v0.1.0`
+
+---
+
 ## [0.1.0] — 2026-04-18
 
 ### Added
