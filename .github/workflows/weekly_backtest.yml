@@ -1,0 +1,109 @@
+name: Weekly Backtest
+
+# 매주 일요일 밤 23:00 UTC (월요일 08:00 KST)에 실행
+# 영길님의 관심 종목 + 3개 전략을 자동 재백테스트하고 HTML 리포트를 docs/reports에 배포
+
+on:
+  schedule:
+    - cron: '0 23 * * 0'   # Sunday 23:00 UTC
+  workflow_dispatch:        # Manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    name: "Run weekly strategy backtests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - strategy: ma_golden
+            tickers: "SPY,QQQ,NVDA,AAPL,MSFT"
+            years: 5
+          - strategy: rsi_oversold
+            tickers: "SPY,QQQ,NVDA,AAPL,MSFT"
+            years: 5
+          - strategy: elliott_w3
+            tickers: "SPY,QQQ,NVDA,AAPL,MSFT"
+            years: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Run backtest
+        run: |
+          python -m src.run \
+            --strategy ${{ matrix.strategy }} \
+            --ticker "${{ matrix.tickers }}" \
+            --years ${{ matrix.years }} \
+            --output-dir "docs/reports/${{ matrix.strategy }}"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-${{ matrix.strategy }}
+          path: docs/reports/${{ matrix.strategy }}/
+          retention-days: 30
+
+  commit-reports:
+    name: "Commit aggregated reports to main"
+    needs: backtest
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: docs/reports/
+          merge-multiple: false
+
+      - name: Reorganize artifacts into per-strategy dirs
+        run: |
+          # artifact dirs are named 'backtest-<strategy>', rename to just '<strategy>'
+          cd docs/reports
+          for d in backtest-*; do
+            strategy="${d#backtest-}"
+            if [ -d "$d" ]; then
+              mkdir -p "$strategy"
+              mv "$d"/* "$strategy"/ 2>/dev/null || true
+              rmdir "$d" 2>/dev/null || true
+            fi
+          done
+          ls -la .
+
+      - name: Commit & push
+        run: |
+          git config user.name  "backtest-lab[bot]"
+          git config user.email "backtest-lab[bot]@users.noreply.github.com"
+          git add docs/reports/ 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "변경 없음 — 커밋 스킵"
+          else
+            TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+            git commit -m "chore(backtest): weekly reports ${TIMESTAMP}"
+            # Rebase-on-push resilience
+            for i in 1 2 3; do
+              git pull --rebase origin main && git push && break || {
+                echo "Push failed, retry $i/3..."
+                sleep $((i*4))
+              }
+            done
+          fi
